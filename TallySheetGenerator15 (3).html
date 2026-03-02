@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dynamic Evaluation Tally</title>
+    <style>
+      /* Global Styles */
+      body {
+        font-family: 'Inter', sans-serif;
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(135deg, #0084ff, #004d99);
+        color: #333;
+      }
+      header {
+        text-align: center;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.1);
+      }
+      header h1 {
+        margin: 0;
+        font-size: 28px;
+        color: #fff;
+        text-transform: uppercase;
+      }
+      main {
+        display: flex;
+        justify-content: center;
+        padding: 20px;
+      }
+      .card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        max-width: 900px;
+        width: 100%;
+        margin: 10px;
+      }
+      .card h2 {
+        margin-top: 0;
+        font-size: 22px;
+        text-align: center;
+      }
+      /* Form Styling */
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 15px;
+      }
+      .form-group label {
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      .form-group input {
+        padding: 8px;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+      }
+      /* Button Group */
+      .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        margin-top: 20px;
+      }
+      button {
+        background: #007bff;
+        color: #fff;
+        border: none;
+        padding: 10px 15px;
+        font-size: 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        margin: 5px;
+        flex: 1 1 auto;
+        transition: background 0.2s ease;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+      /* Table Styling */
+      .table-container {
+        width: 100%;
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+      }
+      th,
+      td {
+        padding: 12px;
+        border: 1px solid #ddd;
+        text-align: center;
+      }
+      th {
+        background: #004d99;
+        color: #fff;
+      }
+      /* Rating Button & Input */
+      .rating-button {
+        background: #007bff;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        width: 60px;
+        height: 40px;
+        font-size: 18px;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+      }
+      .rating-button:hover {
+        background: #0056b3;
+        transform: scale(1.1);
+      }
+      .tally-input {
+        width: 60px;
+        margin-top: 5px;
+        font-size: 16px;
+        text-align: center;
+      }
+      /* Responsive Adjustments for Mobile - Table Shrinkage Only */
+      @media screen and (max-width: 600px) {
+        header h1 {
+          font-size: 20px;
+        }
+        .card {
+          padding: 10px;
+          width: 100%;
+          margin: 5px auto;
+        }
+        .form-group input,
+        .tally-input {
+          font-size: 12px;
+          padding: 4px;
+        }
+        button {
+          font-size: 12px;
+          padding: 6px 8px;
+        }
+        /* Make table elements smaller so all columns fit without swiping */
+        th, 
+        td {
+          padding: 4px;
+          font-size: 10px;
+        }
+        .rating-button {
+          width: 30px;
+          height: 25px;
+          font-size: 10px;
+        }
+        .tally-input {
+          width: 30px;
+          font-size: 10px;
+        }
+      }
+    </style>
+    <!-- External Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>University of Cebu - Main Campus</h1>
+    </header>
+    <main>
+      <!-- Setup Section -->
+      <section id="setupSection" class="card">
+        <h2>Tally Sheet Setup</h2>
+        <div class="form-group">
+          <label for="numQuestions">Number of Questions:</label>
+          <input type="number" id="numQuestions" min="1" value="5" />
+        </div>
+        <div class="form-group">
+          <label for="numRatings">Rating Scale:</label>
+          <input type="number" id="numRatings" min="2" value="5" />
+        </div>
+        <button id="generateButton" onclick="setupQuestions()">Generate Tally Sheet</button>
+      </section>
+
+      <!-- Tally Section -->
+      <section id="tallySection" class="card" style="display: none;">
+        <h2>Tally Sheet Generator</h2>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr id="headerRow">
+                <th>Question</th>
+              </tr>
+            </thead>
+            <tbody id="questions"></tbody>
+          </table>
+        </div>
+        <div class="btn-group">
+          <button onclick="exportSpreadsheet()">Export Report</button>
+          <button onclick="finalize()">Save Progress</button>
+          <button onclick="undo()">Undo Last Action</button>
+          <button onclick="reset()">Reset All</button>
+          <button onclick="startOver()">Start Over</button>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      // JavaScript code remains unchanged.
+      let questions = [];
+      let ratings = 5;
+      let tallyData = [];
+      let previousTallyData = []; // For Undo feature
+
+      window.onload = function () {
+        const savedData = localStorage.getItem("savedTallyData");
+        const savedQuestions = localStorage.getItem("savedQuestions");
+        const savedRatings = localStorage.getItem("savedRatings");
+
+        if (savedData && savedQuestions && savedRatings) {
+          tallyData = JSON.parse(savedData);
+          questions = JSON.parse(savedQuestions);
+          ratings = parseInt(savedRatings, 10);
+
+          document.getElementById("tallySection").style.display = "block";
+          document.getElementById("setupSection").style.display = "none";
+
+          createTable();
+          alert("Previous progress loaded successfully!");
+        }
+      };
+
+      function finalize() {
+        localStorage.setItem("savedTallyData", JSON.stringify(tallyData));
+        localStorage.setItem("savedQuestions", JSON.stringify(questions));
+        localStorage.setItem("savedRatings", ratings);
+        alert("Progress saved successfully!");
+      }
+
+      async function exportSpreadsheet() {
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet("Tally Sheet");
+        const numCols = ratings + 3;
+
+        worksheet.mergeCells(1, 1, 1, numCols);
+        const titleCell = worksheet.getCell("A1");
+        titleCell.value = "Tally Sheet Report";
+        titleCell.font = { bold: true, size: 18, color: { argb: "FF2F5496" } };
+        titleCell.alignment = { horizontal: "center" };
+        titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9E1F2" } };
+
+        worksheet.mergeCells(2, 1, 2, numCols);
+        const subtitleCell = worksheet.getCell("A2");
+        subtitleCell.value =
+          "University of Cebu - Main Campus | Date: " + new Date().toLocaleDateString();
+        subtitleCell.font = { italic: true, size: 12 };
+        subtitleCell.alignment = { horizontal: "center" };
+
+        worksheet.addRow([]);
+
+        let header = ["Question"];
+        for (let r = ratings; r >= 1; r--) {
+          header.push(r.toString());
+        }
+        header.push("Total", "Satisfaction Rate");
+        const headerRow = worksheet.addRow(header);
+        headerRow.eachCell((cell) => {
+          cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+          cell.alignment = { horizontal: "center", vertical: "middle" };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4472C4" } };
+          cell.border = {
+            top: { style: "thin", color: { argb: "FF000000" } },
+            left: { style: "thin", color: { argb: "FF000000" } },
+            bottom: { style: "thin", color: { argb: "FF000000" } },
+            right: { style: "thin", color: { argb: "FF000000" } }
+          };
+        });
+
+        const results = calculateSatisfactionRate();
+        for (let i = 0; i < questions.length; i++) {
+          let rowData = [questions[i]];
+          let totalTally = 0;
+          for (let r = ratings; r >= 1; r--) {
+            rowData.push(tallyData[i][r]);
+            totalTally += tallyData[i][r];
+          }
+          rowData.push(totalTally);
+          rowData.push(results[i].satisfactionRate.toFixed(2));
+          const dataRow = worksheet.addRow(rowData);
+          dataRow.eachCell((cell) => {
+            cell.alignment = { horizontal: "center", vertical: "middle" };
+            cell.border = {
+              top: { style: "thin", color: { argb: "FF000000" } },
+              left: { style: "thin", color: { argb: "FF000000" } },
+              bottom: { style: "thin", color: { argb: "FF000000" } },
+              right: { style: "thin", color: { argb: "FF000000" } }
+            };
+          });
+        }
+
+        worksheet.columns.forEach((column) => {
+          let maxLength = 10;
+          column.eachCell({ includeEmpty: true }, function (cell) {
+            const cellValue = cell.value ? cell.value.toString() : "";
+            maxLength = Math.max(maxLength, cellValue.length);
+          });
+          column.width = maxLength + 2;
+        });
+
+        worksheet.pageSetup = {
+          orientation: "landscape",
+          fitToPage: true,
+          fitToWidth: 1,
+          fitToHeight: 0,
+          margins: {
+            left: 0.7,
+            right: 0.7,
+            top: 0.75,
+            bottom: 0.75,
+            header: 0.3,
+            footer: 0.3
+          }
+        };
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/octet-stream" });
+        saveAs(blob, "Tally_Sheet.xlsx");
+      }
+
+      function undo() {
+        if (previousTallyData.length > 0) {
+          tallyData = JSON.parse(JSON.stringify(previousTallyData.pop()));
+          createTable();
+        } else {
+          alert("No actions to undo.");
+        }
+      }
+
+      function reset() {
+        if (
+          confirm(
+            "Are you sure you want to reset the tally? This will set all values to zero but keep the questions."
+          )
+        ) {
+          tallyData = questions.map(() => {
+            const obj = {};
+            for (let r = 1; r <= ratings; r++) {
+              obj[r] = 0;
+            }
+            return obj;
+          });
+          localStorage.setItem("savedTallyData", JSON.stringify(tallyData));
+          createTable();
+        }
+      }
+
+      function startOver() {
+        if (
+          confirm(
+            "Are you sure you want to start over? This will delete all progress and reset everything."
+          )
+        ) {
+          localStorage.removeItem("savedTallyData");
+          localStorage.removeItem("savedQuestions");
+          localStorage.removeItem("savedRatings");
+          questions = [];
+          tallyData = [];
+          document.getElementById("numQuestions").value = "";
+          document.getElementById("numRatings").value = "";
+          document.getElementById("tallySection").style.display = "none";
+          document.getElementById("setupSection").style.display = "block";
+          alert("Starting over. All data has been cleared.");
+        }
+      }
+
+      function setupQuestions() {
+        const numQuestions = parseInt(document.getElementById("numQuestions").value, 10);
+        ratings = parseInt(document.getElementById("numRatings").value, 10);
+        questions = [];
+        for (let i = 0; i < numQuestions; i++) {
+          const questionText =
+            prompt("Enter question " + (i + 1) + ":") || "Question " + (i + 1);
+          questions.push(questionText);
+        }
+        tallyData = questions.map(() => {
+          const obj = {};
+          for (let r = 1; r <= ratings; r++) {
+            obj[r] = 0;
+          }
+          return obj;
+        });
+        createTable();
+        document.getElementById("tallySection").style.display = "block";
+        document.getElementById("setupSection").style.display = "none";
+      }
+
+      function addTally(questionIndex, rating) {
+        previousTallyData.push(JSON.parse(JSON.stringify(tallyData)));
+        tallyData[questionIndex][rating]++;
+        createTable();
+      }
+
+      function updateTally(questionIndex, rating, newValue) {
+        previousTallyData.push(JSON.parse(JSON.stringify(tallyData)));
+        const num = parseInt(newValue, 10);
+        if (isNaN(num)) {
+          alert("Please enter a valid number.");
+          return;
+        }
+        tallyData[questionIndex][rating] = num;
+        createTable();
+      }
+
+      function calculateSatisfactionRate() {
+        return questions.map((question, i) => {
+          let totalWeighted = 0;
+          let totalResponses = 0;
+          for (let r = 1; r <= ratings; r++) {
+            totalWeighted += tallyData[i][r] * r;
+            totalResponses += tallyData[i][r];
+          }
+          const satisfactionRate = totalResponses > 0 ? totalWeighted / totalResponses : 0;
+          return { satisfactionRate };
+        });
+      }
+
+      function createTable() {
+        const headerRow = document.getElementById("headerRow");
+        headerRow.innerHTML = "<th>Question</th>";
+        for (let r = ratings; r >= 1; r--) {
+          const th = document.createElement("th");
+          th.innerText = r;
+          headerRow.appendChild(th);
+        }
+        const totalTh = document.createElement("th");
+        totalTh.innerText = "Total";
+        headerRow.appendChild(totalTh);
+        const satisfactionTh = document.createElement("th");
+        satisfactionTh.innerText = "Satisfaction Rate";
+        headerRow.appendChild(satisfactionTh);
+
+        const container = document.getElementById("questions");
+        container.innerHTML = "";
+        const results = calculateSatisfactionRate();
+        questions.forEach((question, i) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `<td>${question}</td>`;
+          let totalTally = 0;
+          for (let r = ratings; r >= 1; r--) {
+            totalTally += tallyData[i][r];
+            row.innerHTML += `<td>
+              <button class="rating-button" onclick="addTally(${i}, ${r})">
+                ${tallyData[i][r]}
+              </button>
+              <br>
+              <input type="number" class="tally-input" value="${tallyData[i][r]}" onchange="updateTally(${i}, ${r}, this.value)" />
+              <br>
+              <small>${tallyData[i][r] * r}</small>
+            </td>`;
+          }
+          row.innerHTML += `<td><strong>${totalTally}</strong></td>`;
+          row.innerHTML += `<td><strong>${results[i].satisfactionRate.toFixed(2)}</strong></td>`;
+          container.appendChild(row);
+        });
+      }
+    </script>
+  </body>
+</html>
